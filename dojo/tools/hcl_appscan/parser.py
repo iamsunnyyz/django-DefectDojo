@@ -1,9 +1,6 @@
 from xml.dom import NamespaceErr
-
 from defusedxml import ElementTree as ET
-
 from dojo.models import Endpoint, Finding
-
 
 class HCLAppScanParser:
     def get_scan_types(self):
@@ -36,8 +33,24 @@ class HCLAppScanParser:
         report = root.find("issue-group")
         if report is not None:
             for finding in report:
-                title = ""
+                name = ""
                 description = ""
+                remediation = ""
+                advisory = ""
+                severity = "Info"
+                cwe = 0
+                impact = "Null"
+                steps_to_reproduce = "Null"
+                severity_justification = "Null"
+                references = "Null"
+                host = ""
+                port = ""
+                domain = ""
+                entity = ""
+                causeid = ""
+                urlname = ""
+                path = ""
+
                 for item in finding:
                     match item.tag:
                         case 'severity':
@@ -53,61 +66,78 @@ class HCLAppScanParser:
                         case 'advisory':
                             advisory = self.xmltreehelper(item)
                         case 'issue-type':
-                            title = self.xmltreehelper(item).strip()
-                            description = description + "Issue-Type:" + title + "\n"
+                            issue_type = self.xmltreehelper(item).strip()
+                            name += issue_type
+                            description += f"Issue Type: {issue_type}\n"
                         case 'issue-type-name':
-                            title = self.xmltreehelper(item).strip()
-                            description = description + "Issue-Type-Name:" + title + "\n"
+                            issue_type_name = self.xmltreehelper(item).strip()
+                            description += f"Issue Type Name: {issue_type_name}\n"
                         case 'location':
                             location = self.xmltreehelper(item)
-                            description = description + "Location:" + location + "\n"
+                            description += f"Location: {location}\n"
                         case 'domain':
                             domain = self.xmltreehelper(item)
-                            title += "_" + domain.strip()
-                            description = description + "Domain:" + domain + "\n"
+                            name += f"_{domain.strip()}"
+                            description += f"Domain: {domain}\n"
                         case 'threat-class':
                             threatclass = self.xmltreehelper(item)
-                            description = description + "Threat-Class:" + threatclass + "\n"
+                            description += f"Threat Class: {threatclass}\n"
                         case 'entity':
                             entity = self.xmltreehelper(item)
-                            title += "_" + entity.strip()
-                            description = description + "Entity:" + entity + "\n"
+                            name += f"_{entity.strip()}"
+                            description += f"Entity: {entity}\n"
                         case 'security-risks':
                             security_risks = self.xmltreehelper(item)
-                            description = description + "Security-Risks:" + security_risks + "\n"
+                            description += f"Security Risks: {security_risks}\n"
                         case 'cause-id':
                             causeid = self.xmltreehelper(item)
-                            title += "_" + causeid.strip()
-                            description = description + "Cause-Id:" + causeid + "\n"
+                            name += f"_{causeid.strip()}"
+                            description += f"Cause ID: {causeid}\n"
                         case 'url-name':
                             urlname = self.xmltreehelper(item)
-                            title += "_" + urlname.strip()
-                            description = description + "Url-Name:" + urlname + "\n"
+                            name += f"_{urlname.strip()}"
+                            description += f"URL Name: {urlname}\n"
                         case 'element':
                             element = self.xmltreehelper(item)
-                            description = description + "Element:" + element + "\n"
+                            description += f"Element: {element}\n"
                         case 'element-type':
                             elementtype = self.xmltreehelper(item)
-                            description = description + "ElementType:" + elementtype + "\n"
+                            description += f"Element Type: {elementtype}\n"
                         case 'path':
                             path = self.xmltreehelper(item)
-                            title += "_" + path.strip()
-                            description = description + "Path:" + path + "\n"
+                            name += f"_{path.strip()}"
+                            description += f"Path: {path}\n"
                         case 'scheme':
                             scheme = self.xmltreehelper(item)
-                            description = description + "Scheme:" + scheme + "\n"
+                            description += f"Scheme: {scheme}\n"
                         case 'host':
                             host = self.xmltreehelper(item)
-                            description = description + "Host:" + host + "\n"
+                            description += f"Host: {host}\n"
                         case 'port':
                             port = self.xmltreehelper(item)
-                            description = description + "Port:" + port + "\n"
+                            description += f"Port: {port}\n"
+                        case 'impact':
+                            impact = self.xmltreehelper(item)
+                        case 'steps-to-reproduce':
+                            steps_to_reproduce = self.xmltreehelper(item)
+                        case 'severity-justification':
+                            severity_justification = self.xmltreehelper(item)
+                        case 'references':
+                            references = self.xmltreehelper(item)
+                
+                name = f"{issue_type}_{domain}_{entity}_{causeid}_{urlname}_{path}"
+                mitigation = f"Remediation: {remediation}\nAdvisory: {advisory}"
+
                 finding = Finding(
-                    title=title,
+                    title=name,
                     description=description,
                     severity=severity,
                     cwe=cwe,
-                    mitigation="Remediation:" + remediation + "\nAdvisory:" + advisory,
+                    mitigation=mitigation,
+                    impact=impact,
+                    steps_to_reproduce=steps_to_reproduce,
+                    severity_justification=severity_justification,
+                    references=references,
                     dynamic_finding=True,
                     static_finding=False,
                 )
@@ -121,3 +151,20 @@ class HCLAppScanParser:
             return findings
         else:
             return findings
+
+if __name__ == "__main__":
+    parser = HCLAppScanParser()
+    findings = parser.get_findings('example.xml', None)
+    for finding in findings:
+        print(f"Name: {finding.name}")
+        print(f"Description: {finding.description}")
+        print(f"Severity: {finding.severity}")
+        print(f"CWE: {finding.cwe}")
+        print(f"Mitigation: {finding.mitigation}")
+        print(f"Impact: {finding.impact}")
+        print(f"Steps to Reproduce: {finding.steps_to_reproduce}")
+        print(f"Severity Justification: {finding.severity_justification}")
+        print(f"References: {finding.references}")
+        for endpoint in finding.unsaved_endpoints:
+            print(f"Endpoint: {endpoint.host}:{endpoint.port}")
+        print("----------")
